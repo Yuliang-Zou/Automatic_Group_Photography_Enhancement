@@ -13,7 +13,7 @@ import numpy.random as npr
 from generate_anchors import generate_anchors
 from utils.cython_bbox import bbox_overlaps
 from fast_rcnn.bbox_transform import bbox_transform
-import pdb
+import ipdb
 
 DEBUG = False
 
@@ -251,6 +251,7 @@ def _compute_targets(ex_rois, gt_rois):
 
     assert ex_rois.shape[0] == gt_rois.shape[0]
     assert ex_rois.shape[1] == 4
-    assert gt_rois.shape[1] == 5
+    # (Yuliang) Add 2 more for strokes and areas
+    assert gt_rois.shape[1] == 7    #5+2
 
     return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)

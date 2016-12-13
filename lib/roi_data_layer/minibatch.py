@@ -12,6 +12,7 @@ import numpy.random as npr
 import cv2
 from fast_rcnn.config import cfg
 from utils.blob import prep_im_for_blob, im_list_to_blob
+import ipdb
 
 def get_minibatch(roidb, num_classes):
     """Given a roidb, construct a minibatch sampled from it."""
@@ -35,9 +36,20 @@ def get_minibatch(roidb, num_classes):
         assert len(roidb) == 1, "Single batch only"
         # gt boxes: (x1, y1, x2, y2, cls)
         gt_inds = np.where(roidb[0]['gt_classes'] != 0)[0]
-        gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
+        gt_boxes = np.empty((len(gt_inds), 7), dtype=np.float32) #5->7
         gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
+
+        # (Yuliang) Add strokes and areas
+        try:
+            gt_boxes[:, 5] = int(roidb[0]['eye'][gt_inds])
+        except Exception:
+            gt_boxes[:, 5] = -1
+        try:
+            gt_boxes[:, 6] = int(roidb[0]['smile'][gt_inds])
+        except Exception:
+            gt_boxes[:, 6] = -1
+
         blobs['gt_boxes'] = gt_boxes
         blobs['im_info'] = np.array(
             [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],

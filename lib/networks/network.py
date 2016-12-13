@@ -41,15 +41,15 @@ class Network(object):
 
     def setup(self):
         raise NotImplementedError('Must be subclassed.')
-
-    # (Yuliang) To extract parameters from Tensorflow ckpt
+    
+    # (Yuliang) To extract parameters from Tensorflow ckpt, then save as npy
     def extract(self, data_path, session, saver):
         saver.restore(session, data_path)
         scopes = ['conv1_1','conv1_2','conv2_1','conv2_2','conv3_1','conv3_2','conv3_3','conv4_1','conv4_2','conv4_3','conv5_1','conv5_2','conv5_3','rpn_conv/3x3','rpn_cls_score','rpn_bbox_pred','fc6','fc7','cls_score','bbox_pred']
         data_dict = {}
         for scope in scopes:
             # Freezed layers
-            if scope in ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']:
+            if scope in ['conv1_1','conv1_2','conv2_1','conv2_2']:
                 [w, b] = tf.get_collection(tf.GraphKeys.VARIABLES, scope=scope)
             # We don't need momentum variables
             else:
@@ -57,10 +57,10 @@ class Network(object):
             data_dict[scope] = {'weights':w.eval(), 'biases':b.eval()}
         file_name = data_path[0:-5]
         np.save(file_name, data_dict)
-        ipdb.set_trace()
-        return file_name + '.npy'
+        ipdb.set_trace()       
+        return file_name + '.npy'   
 
-    def load(self, data_path, session, ignore_missing=False):
+    def load(self, data_path, session, ignore_missing=True):
         data_dict = np.load(data_path).item()
         for key in data_dict:
             with tf.variable_scope(key, reuse=True):
@@ -82,7 +82,7 @@ class Network(object):
             if isinstance(layer, basestring):
                 try:
                     layer = self.layers[layer]
-                    print layer
+                    # print layer
                 except KeyError:
                     print self.layers.keys()
                     raise KeyError('Unknown layer name fed: %s'%layer)
@@ -163,7 +163,7 @@ class Network(object):
 
         if isinstance(input[1], tuple):
             input[1] = input[1][0]
-
+        
         print input
         return roi_pool_op.roi_pool(input[0], input[1],
                                     pooled_height,
@@ -201,17 +201,29 @@ class Network(object):
         if isinstance(input[0], tuple):
             input[0] = input[0][0]
         with tf.variable_scope(name) as scope:
-
-            rois,labels,bbox_targets,bbox_inside_weights,bbox_outside_weights = tf.py_func(proposal_target_layer_py,[input[0],input[1],classes],[tf.float32,tf.float32,tf.float32,tf.float32,tf.float32])
+            # (Yuliang)
+            rois,labels,eye,smile,bbox_targets,bbox_inside_weights,bbox_outside_weights = tf.py_func(proposal_target_layer_py,[input[0],input[1],classes],[tf.float32,tf.float32,tf.float32,tf.float32,tf.float32,tf.float32,tf.float32])
 
             rois = tf.reshape(rois,[-1,5] , name = 'rois') 
             labels = tf.convert_to_tensor(tf.cast(labels,tf.int32), name = 'labels')
+            # (Yuliang)
+            eye = tf.convert_to_tensor(tf.cast(eye,tf.int32), name = 'eye')
+            smile = tf.convert_to_tensor(tf.cast(smile,tf.int32), name = 'smile')
+
             bbox_targets = tf.convert_to_tensor(bbox_targets, name = 'bbox_targets')
             bbox_inside_weights = tf.convert_to_tensor(bbox_inside_weights, name = 'bbox_inside_weights')
             bbox_outside_weights = tf.convert_to_tensor(bbox_outside_weights, name = 'bbox_outside_weights')
 
-           
-            return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
+            # (Yuliang)
+            return rois, labels, eye, smile, bbox_targets, bbox_inside_weights, bbox_outside_weights
+            # return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
+
+    # (Yuliang)
+    # Since we have 2 more outputs in proposal_target_layer, we now want to
+    # exclude them so that we can feed into the roi_pooling layer
+    @layer
+    def proposal_target_extract_layer(self, input, name):
+        return input[0], input[1], input[4], input[5], input[6]
 
 
     @layer
@@ -286,3 +298,8 @@ class Network(object):
     @layer
     def dropout(self, input, keep_prob, name):
         return tf.nn.dropout(input, keep_prob, name=name)
+
+    # (Yuliang)
+    @layer
+    def conv_lstm(self, input):
+        pass

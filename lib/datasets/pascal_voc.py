@@ -18,7 +18,7 @@ import subprocess
 import uuid
 from voc_eval import voc_eval
 from fast_rcnn.config import cfg
-import pdb
+import ipdb
 
 
 class pascal_voc(imdb):
@@ -70,6 +70,9 @@ class pascal_voc(imdb):
         """
         image_path = os.path.join(self._data_path, 'JPEGImages',
                                   index + self._image_ext)
+        # (Yuliang) Add png format support
+        if not os.path.exists(image_path):
+            image_path = image_path[:-3] + 'png'
         assert os.path.exists(image_path), \
                 'Path does not exist: {}'.format(image_path)
         return image_path
@@ -187,7 +190,10 @@ class pascal_voc(imdb):
         format.
         """
         filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
-        tree = ET.parse(filename)
+        try:
+            tree = ET.parse(filename)
+        except:
+            ipdb.set_trace()
         objs = tree.findall('object')
         if not self.config['use_diff']:
             # Exclude the samples labeled as difficult
@@ -204,9 +210,25 @@ class pascal_voc(imdb):
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
         # "Seg" area for pascal is just the box area
         seg_areas = np.zeros((num_objs), dtype=np.float32)
+        # (Yuliang) 
+        eye = np.zeros((num_objs), dtype=np.float32)
+        smile = np.zeros((num_objs), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
+            # (Yuliang) Add eye and smile label
+            if obj.find('eye') is not None:
+                eye[ix] = np.int32(obj.find('eye').text)
+            else:
+                eye[ix] = -1
+            if obj.find('smile') is not None:
+                try:
+                    smile[ix] = np.int32(obj.find('smile').text)
+                except:
+                    ipdb.set_trace()
+            else:
+                smile[ix] = -1
+
             bbox = obj.find('bndbox')
             # Make pixel indexes 0-based
             x1 = float(bbox.find('xmin').text) - 1
@@ -225,7 +247,9 @@ class pascal_voc(imdb):
                 'gt_classes': gt_classes,
                 'gt_overlaps' : overlaps,
                 'flipped' : False,
-                'seg_areas' : seg_areas}
+                'seg_areas' : seg_areas,
+                'eye': eye,
+                'smile': smile}
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']

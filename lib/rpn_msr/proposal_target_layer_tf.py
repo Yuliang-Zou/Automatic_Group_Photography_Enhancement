@@ -11,7 +11,7 @@ import numpy.random as npr
 from fast_rcnn.config import cfg
 from fast_rcnn.bbox_transform import bbox_transform
 from utils.cython_bbox import bbox_overlaps
-import pdb
+import ipdb
 
 DEBUG = False
 
@@ -29,8 +29,9 @@ def proposal_target_layer(rpn_rois, gt_boxes,_num_classes):
 
     # Include ground-truth boxes in the set of candidate rois
     zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
+    # (Yuliang) Minus the 2 more values 
     all_rois = np.vstack(
-        (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
+        (all_rois, np.hstack((zeros, gt_boxes[:, :-3]))) #-1-2
     )
 
     # Sanity check: single batch only
@@ -43,7 +44,9 @@ def proposal_target_layer(rpn_rois, gt_boxes,_num_classes):
 
     # Sample rois with classification labels and bounding box regression
     # targets
-    labels, rois, bbox_targets, bbox_inside_weights = _sample_rois(
+    # (Yuliang)
+    # labels, rois, bbox_targets, bbox_inside_weights = 
+    labels, eye, smile, rois, bbox_targets, bbox_inside_weights = _sample_rois(
         all_rois, gt_boxes, fg_rois_per_image,
         rois_per_image, _num_classes)
 
@@ -59,12 +62,17 @@ def proposal_target_layer(rpn_rois, gt_boxes,_num_classes):
 
     rois = rois.reshape(-1,5)
     labels = labels.reshape(-1,1)
+    # (Yuliang)
+    eye = eye.reshape(-1,1)
+    smile   = smile.reshape(-1,1)
     bbox_targets = bbox_targets.reshape(-1,_num_classes*4)
     bbox_inside_weights = bbox_inside_weights.reshape(-1,_num_classes*4)
 
     bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
-
-    return rois,labels,bbox_targets,bbox_inside_weights,bbox_outside_weights
+    
+    # (Yuliang)
+    return rois, labels, eye, smile, bbox_targets, bbox_inside_weights, bbox_outside_weights
+    # return rois,labels,bbox_targets,bbox_inside_weights,bbox_outside_weights
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
     """Bounding-box regression targets (bbox_target_data) are stored in a
@@ -118,6 +126,10 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     max_overlaps = overlaps.max(axis=1)
     labels = gt_boxes[gt_assignment, 4]
 
+    # (Yuliang)
+    eye = gt_boxes[gt_assignment, 5]
+    smile   = gt_boxes[gt_assignment, 6]
+
     # Select foreground RoIs as those with >= FG_THRESH overlap
     fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
@@ -142,9 +154,18 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     keep_inds = np.append(fg_inds, bg_inds)
     # Select sampled values from various arrays:
     labels = labels[keep_inds]
+
+    # (Yuliang)
+    eye = eye[keep_inds]
+    smile = smile[keep_inds]
+
     # Clamp labels for the background RoIs to 0
     labels[fg_rois_per_this_image:] = 0
     rois = all_rois[keep_inds]
+
+    # (Yuliang)
+    eye[fg_rois_per_this_image:] = -1
+    smile[fg_rois_per_this_image:]   = -1
 
     bbox_target_data = _compute_targets(
         rois[:, 1:5], gt_boxes[gt_assignment[keep_inds], :4], labels)
@@ -152,4 +173,5 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     bbox_targets, bbox_inside_weights = \
         _get_bbox_regression_labels(bbox_target_data, num_classes)
 
-    return labels, rois, bbox_targets, bbox_inside_weights
+    return labels, eye, smile, rois, bbox_targets, bbox_inside_weights
+    # return labels, rois, bbox_targets, bbox_inside_weights

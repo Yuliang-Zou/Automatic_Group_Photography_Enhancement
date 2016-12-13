@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import os
 import cPickle
 import numpy as np
-import pdb
+import ipdb
 def parse_rec(filename):
     """ Parse a PASCAL VOC xml file """
     tree = ET.parse(filename)
@@ -101,7 +101,8 @@ def voc_eval(detpath,
     with open(imagesetfile, 'r') as f:
         lines = f.readlines()
     imagenames = [x.strip() for x in lines]
-
+    if 'pg' in imagenames:
+        ipdb.set_trace()
     if not os.path.isfile(cachefile):
         # load annots
         recs = {}

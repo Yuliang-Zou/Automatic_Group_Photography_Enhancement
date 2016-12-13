@@ -1,7 +1,7 @@
 import _init_paths
 import tensorflow as tf
 from fast_rcnn.config import cfg
-from fast_rcnn.test import im_detect
+from fast_rcnn.test import im_detect, im_detect_ori
 from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
 import matplotlib.pyplot as plt
@@ -9,19 +9,18 @@ import numpy as np
 import os, sys, cv2
 import argparse
 from networks.factory import get_network
+import ipdb
 
 
-CLASSES = ('__background__',
+# (Yuliang) Background + voc(w/o person) + face
+CLASSES = ('__background__', 
            'aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
            'motorbike', 'pottedplant', 'sheep',
            'sofa', 'train', 'tvmonitor', 'face')
 
-
-#CLASSES = ('__background__','person','bike','motorbike','car','bus')
-
-def vis_detections(im, class_name, dets,ax, thresh=0.5):
+def vis_detections(im, class_name, dets, eyes, smiles, ax, thresh=0.9):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
@@ -30,6 +29,8 @@ def vis_detections(im, class_name, dets,ax, thresh=0.5):
     for i in inds:
         bbox = dets[i, :4]
         score = dets[i, -1]
+        eye = eyes[i, 1]
+        smile = smiles[i, 1]
 
         ax.add_patch(
             plt.Rectangle((bbox[0], bbox[1]),
@@ -41,6 +42,16 @@ def vis_detections(im, class_name, dets,ax, thresh=0.5):
                 '{:s} {:.3f}'.format(class_name, score),
                 bbox=dict(facecolor='blue', alpha=0.5),
                 fontsize=14, color='white')
+
+        ax.text(bbox[0], bbox[3] + 2,
+                'Open eye score: {:.3f}'.format(eye),
+                bbox=dict(facecolor='green', alpha = 0.5),
+                fontsize=12, color='white')
+
+        ax.text(bbox[0], bbox[3] + 30,
+                'Smiling score: {:.3f}'.format(smile),
+                bbox=dict(facecolor='green', alpha = 0.5),
+                fontsize=12, color='white')
 
     ax.set_title(('{} detections with '
                   'p({} | box) >= {:.1f}').format(class_name, class_name,
@@ -62,17 +73,18 @@ def demo(sess, net, image_name):
     # Detect all object classes and regress object bounds
     timer = Timer()
     timer.tic()
-    scores, boxes = im_detect(sess, net, im)
+    # scores, boxes = im_detect(sess, net, im)
+    scores, boxes, eyes, smiles = im_detect_ori(sess, net, im)
     timer.toc()
     print ('Detection took {:.3f}s for '
            '{:d} object proposals').format(timer.total_time, boxes.shape[0])
 
     # Visualize detections for each class
     im = im[:, :, (2, 1, 0)]
-    fig, ax = plt.subplots(figsize=(12, 12))
+    fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(im, aspect='equal')
 
-    CONF_THRESH = 0.8
+    CONF_THRESH = 0.9
     NMS_THRESH = 0.3
     for cls_ind, cls in enumerate(CLASSES[20:]):
         cls_ind += 20 # because we skipped everything except face
@@ -82,8 +94,10 @@ def demo(sess, net, image_name):
                           cls_scores[:, np.newaxis])).astype(np.float32)
         keep = nms(dets, NMS_THRESH)
         dets = dets[keep, :]
-        vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
-
+        eye  = eyes[keep, :]
+        smile= smiles[keep, :]
+        vis_detections(im, cls, dets, eye, smile, ax, thresh=CONF_THRESH)
+    
 def parse_args():
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description='Faster R-CNN demo')
@@ -124,9 +138,10 @@ if __name__ == '__main__':
     for i in xrange(2):
         _, _= im_detect(sess, net, im)
 
-    # im_names = ['000456.jpg', '000542.jpg', '001150.jpg',
-    #             '001763.jpg', '004545.jpg']
-    im_names = ['f2_1.png', 'f2_2.png', 'f2_3.png', 'f2_4.png']
+    
+    im_names = ['img_46.jpg', 'img_208.jpg', 'img_269.jpg', 
+    'img_339.jpg', 'img_726.jpg', 'img_843.jpg']
+    # im_names = ['f2_1.png', 'f2_2.png', 'f2_3.png', 'f2_4.png']
 
     for im_name in im_names:
         print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'

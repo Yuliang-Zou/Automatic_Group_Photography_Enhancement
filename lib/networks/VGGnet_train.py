@@ -4,7 +4,7 @@ from networks.network import Network
 
 #define
 
-n_classes = 21    # (Yuliang) Background + voc(w/o person) +  face
+n_classes = 21    #(Yuliang) Background + voc(w/o person) + face
 _feat_stride = [16,]
 anchor_scales = [8, 16, 32]
 
@@ -13,22 +13,11 @@ class VGGnet_train(Network):
         self.inputs = []
         self.data = tf.placeholder(tf.float32, shape=[None, None, None, 3])
         self.im_info = tf.placeholder(tf.float32, shape=[None, 3])
-        self.gt_boxes = tf.placeholder(tf.float32, shape=[None, 5])
+        self.gt_boxes = tf.placeholder(tf.float32, shape=[None, 7]) #5+2
         self.keep_prob = tf.placeholder(tf.float32)
         self.layers = dict({'data':self.data, 'im_info':self.im_info, 'gt_boxes':self.gt_boxes})
         self.trainable = trainable
         self.setup()
-
-        # create ops and placeholders for bbox normalization process
-        with tf.variable_scope('bbox_pred', reuse=True):
-            weights = tf.get_variable("weights")
-            biases = tf.get_variable("biases")
-
-            self.bbox_weights = tf.placeholder(weights.dtype, shape=weights.get_shape())
-            self.bbox_biases = tf.placeholder(biases.dtype, shape=biases.get_shape())
-
-            self.bbox_weights_assign = weights.assign(self.bbox_weights)
-            self.bbox_bias_assign = biases.assign(self.bbox_biases)
 
     def setup(self):
         (self.feed('data')
@@ -49,11 +38,12 @@ class VGGnet_train(Network):
              .conv(3, 3, 512, 1, 1, name='conv5_1')
              .conv(3, 3, 512, 1, 1, name='conv5_2')
              .conv(3, 3, 512, 1, 1, name='conv5_3'))
+        
         #========= RPN ============
         (self.feed('conv5_3')
-             .conv(3,3,512,1,1,name='rpn_conv/3x3')
+             .conv(3,3,512,1,1,name='rpn_conv/3x3') # Add conv_lstm after this
              .conv(1,1,len(anchor_scales)*3*2 ,1 , 1, padding='VALID', relu = False, name='rpn_cls_score'))
-
+  
         (self.feed('rpn_cls_score','gt_boxes','im_info','data')
              .anchor_target_layer(_feat_stride, anchor_scales, name = 'rpn-data' ))
 
@@ -61,7 +51,7 @@ class VGGnet_train(Network):
 
         (self.feed('rpn_conv/3x3')
              .conv(1,1,len(anchor_scales)*3*4, 1, 1, padding='VALID', relu = False, name='rpn_bbox_pred'))
-
+        
         #========= RoI Proposal ============
         (self.feed('rpn_cls_score')
              .reshape_layer(2,name = 'rpn_cls_score_reshape')
@@ -74,11 +64,13 @@ class VGGnet_train(Network):
              .proposal_layer(_feat_stride, anchor_scales, 'TRAIN',name = 'rpn_rois'))
 
         (self.feed('rpn_rois','gt_boxes')
-             .proposal_target_layer(n_classes,name = 'roi-data'))
+             .proposal_target_layer(n_classes,name = 'roi-data')
+             # (Yuliang)
+             .proposal_target_extract_layer(name = 'roi-data-pure'))
 
 
-        #========= RCNN ============
-        (self.feed('conv5_3', 'roi-data')
+        #========= RCNN ============        
+        (self.feed('conv5_3', 'roi-data-pure')    # (Yuliang)
              .roi_pool(7, 7, 1.0/16, name='pool_5')
              .fc(4096, name='fc6')
              .dropout(0.5, name='drop6')
@@ -89,4 +81,14 @@ class VGGnet_train(Network):
 
         (self.feed('drop7')
              .fc(n_classes*4, relu=False, name='bbox_pred'))
+        
+        # (Yuliang)
+        #========= Strokes and areas =======
+        (self.feed('drop7')
+             .fc(2, relu=False, name='eye_score')
+             .softmax(name='eye_prob'))
 
+        (self.feed('drop7')
+             .fc(2, relu=False, name='smile_score')
+             .softmax(name='smile_prob'))
+        

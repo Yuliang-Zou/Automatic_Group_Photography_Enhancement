@@ -102,6 +102,7 @@ class imdb(object):
               for i in xrange(self.num_images)]
 
     def append_flipped_images(self):
+        # (Yuliang) For speed, stop this data augmentation
         """
         num_images = self.num_images
         widths = self._get_widths()
@@ -119,8 +120,6 @@ class imdb(object):
             self.roidb.append(entry)
         self._image_index = self._image_index * 2
         """
-        pass
-
     def evaluate_recall(self, candidate_boxes=None, thresholds=None,
                         area='all', limit=None):
         """Evaluate detection proposal recall metrics.

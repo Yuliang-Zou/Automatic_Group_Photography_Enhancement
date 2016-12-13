@@ -14,8 +14,8 @@ from rpn_msr.generate import imdb_proposals_det
 import tensorflow as tf
 from fast_rcnn.bbox_transform import clip_boxes, bbox_transform_inv
 import matplotlib.pyplot as plt
-from tensorflow.python.client import timeline
-import time
+import ipdb
+
 
 def _get_image_blob(im):
     """Converts an image into a network input.
@@ -129,9 +129,9 @@ def _rescale_boxes(boxes, inds, scales):
 
     return boxes
 
-
-def im_detect(sess, net, im, boxes=None):
-    """Detect object classes in an image given object proposals.
+# !!!(Yuliang)
+def im_detect_ori(sess, net, im, boxes=None):
+    """Detect object classes in an image given object proposals, along with the stroke orientation and facial area.
     Arguments:
         net (caffe.Net): Fast R-CNN network to use
         im (ndarray): color image to test (in BGR order)
@@ -140,10 +140,12 @@ def im_detect(sess, net, im, boxes=None):
         scores (ndarray): R x K array of object class scores (K includes
             background as object category 0)
         boxes (ndarray): R x (4*K) array of predicted bounding boxes
+        strokes (ndarray): R x 3 array of stroke orientation class prob
+        areas (ndarray): R x 9 array of facial area prob
     """
 
     blobs, im_scales = _get_blobs(im, boxes)
-
+    
     # When mapping from image ROIs to feature map ROIs, there's some aliasing
     # (some distinct image ROIs get mapped to the same feature ROI).
     # Here, we identify duplicate feature ROIs, so we only compute features
@@ -166,18 +168,9 @@ def im_detect(sess, net, im, boxes=None):
         feed_dict={net.data: blobs['data'], net.im_info: blobs['im_info'], net.keep_prob: 1.0}
     else:
         feed_dict={net.data: blobs['data'], net.rois: blobs['rois'], net.keep_prob: 1.0}
-
-    run_options = None
-    run_metadata = None
-    if cfg.TEST.DEBUG_TIMELINE:
-        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        run_metadata = tf.RunMetadata()
-
-    cls_score, cls_prob, bbox_pred, rois = sess.run([net.get_output('cls_score'), net.get_output('cls_prob'), net.get_output('bbox_pred'),net.get_output('rois')],
-                                                    feed_dict=feed_dict,
-                                                    options=run_options,
-                                                    run_metadata=run_metadata)
-
+    
+    cls_score, cls_prob, bbox_pred, rois, eye, smile = sess.run([net.get_output('cls_score'), net.get_output('cls_prob'), net.get_output('bbox_pred'),net.get_output('rois'), net.get_output('eye_prob'), net.get_output('smile_prob')], feed_dict=feed_dict)
+    
     if cfg.TEST.HAS_RPN:
         assert len(im_scales) == 1, "Only single-image batch implemented"
         boxes = rois[:, 1:5] / im_scales[0]
@@ -205,22 +198,85 @@ def im_detect(sess, net, im, boxes=None):
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
 
-    if cfg.TEST.DEBUG_TIMELINE:
-        trace = timeline.Timeline(step_stats=run_metadata.step_stats)
-        trace_file = open(str(long(time.time() * 1000)) + '-test-timeline.ctf.json', 'w')
-        trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
-        trace_file.close()
+    return scores, pred_boxes, eye, smile
+
+
+def im_detect(sess, net, im, boxes=None):
+    """Detect object classes in an image given object proposals.
+    Arguments:
+        net (caffe.Net): Fast R-CNN network to use
+        im (ndarray): color image to test (in BGR order)
+        boxes (ndarray): R x 4 array of object proposals
+    Returns:
+        scores (ndarray): R x K array of object class scores (K includes
+            background as object category 0)
+        boxes (ndarray): R x (4*K) array of predicted bounding boxes
+    """
+
+    blobs, im_scales = _get_blobs(im, boxes)
+    
+    # When mapping from image ROIs to feature map ROIs, there's some aliasing
+    # (some distinct image ROIs get mapped to the same feature ROI).
+    # Here, we identify duplicate feature ROIs, so we only compute features
+    # on the unique subset.
+    if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
+        v = np.array([1, 1e3, 1e6, 1e9, 1e12])
+        hashes = np.round(blobs['rois'] * cfg.DEDUP_BOXES).dot(v)
+        _, index, inv_index = np.unique(hashes, return_index=True,
+                                        return_inverse=True)
+        blobs['rois'] = blobs['rois'][index, :]
+        boxes = boxes[index, :]
+
+    if cfg.TEST.HAS_RPN:
+        im_blob = blobs['data']
+        blobs['im_info'] = np.array(
+            [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
+            dtype=np.float32)
+    # forward pass
+    if cfg.TEST.HAS_RPN:
+        feed_dict={net.data: blobs['data'], net.im_info: blobs['im_info'], net.keep_prob: 1.0}
+    else:
+        feed_dict={net.data: blobs['data'], net.rois: blobs['rois'], net.keep_prob: 1.0}
+    
+    cls_score, cls_prob, bbox_pred, rois = sess.run([net.get_output('cls_score'), net.get_output('cls_prob'), net.get_output('bbox_pred'),net.get_output('rois')], feed_dict=feed_dict)
+    
+    if cfg.TEST.HAS_RPN:
+        assert len(im_scales) == 1, "Only single-image batch implemented"
+        boxes = rois[:, 1:5] / im_scales[0]
+
+
+    if cfg.TEST.SVM:
+        # use the raw scores before softmax under the assumption they
+        # were trained as linear SVMs
+        scores = cls_score
+    else:
+        # use softmax estimated probabilities
+        scores = cls_prob
+
+    if cfg.TEST.BBOX_REG:
+        # Apply bounding-box regression deltas
+        box_deltas = bbox_pred
+        pred_boxes = bbox_transform_inv(boxes, box_deltas)
+        pred_boxes = _clip_boxes(pred_boxes, im.shape)
+    else:
+        # Simply repeat the boxes, once for each class
+        pred_boxes = np.tile(boxes, (1, scores.shape[1]))
+
+    if cfg.DEDUP_BOXES > 0 and not cfg.TEST.HAS_RPN:
+        # Map scores and predictions back to the original set of boxes
+        scores = scores[inv_index, :]
+        pred_boxes = pred_boxes[inv_index, :]
 
     return scores, pred_boxes
 
 
 def vis_detections(im, class_name, dets, thresh=0.8):
     """Visual debugging of detections."""
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt 
     #im = im[:, :, (2, 1, 0)]
     for i in xrange(np.minimum(10, dets.shape[0])):
-        bbox = dets[i, :4]
-        score = dets[i, -1]
+        bbox = dets[i, :4] 
+        score = dets[i, -1] 
         if score > thresh:
             #plt.cla()
             #plt.imshow(im)
@@ -304,7 +360,7 @@ def test_net(sess, net, imdb, weights_filename , max_per_image=300, thresh=0.05,
 
         _t['misc'].tic()
         if vis:
-            image = im[:, :, (2, 1, 0)]
+            image = im[:, :, (2, 1, 0)] 
             plt.cla()
             plt.imshow(image)
 
