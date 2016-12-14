@@ -126,7 +126,7 @@ python tools/test_yl.py  --model model/VGGnet_fast_rcnn_full_eye_smile_1e-4_iter
 
 ### Experiment results 
 
-1. Face detector
+1) Face detector
 
 The AP on the WIDER training set is `0.328`. The AP on the whold FDDB dataset is `0.902`.
 
@@ -134,7 +134,9 @@ Some examples:
 
 <img src="example/face_example.png">
 
-2. Eye-closure and smile classification
+(Green box: ground truth, red box: prediction)
+
+2) Eye-closure and smile classification
 
 <img src="example/result.png">
 
