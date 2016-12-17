@@ -65,7 +65,7 @@ In order to run the automatic enhancement code, you need to:
 
 Then you can run:
 
-```python
+```Shell
 python tools/enhance.py --model model/VGGnet_fast_rcnn_full_eye_smile_1e-4_iter_70000.ckpt
 ```
 
