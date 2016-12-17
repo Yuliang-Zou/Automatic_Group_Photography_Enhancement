@@ -9,7 +9,7 @@ The system pipeline is as follows:
 We built our system on top of the [Faster R-CNN](http://arxiv.org/pdf/1506.01497v3.pdf). Here we used a [TensorFlow implementation](https://github.com/smallcorgi/Faster-RCNN_TF).
 
 
-### Requirements: software
+### Requirements
 
 1. Tensorflow (see: [Tensorflow](https://www.tensorflow.org/)). Please select appropriate version (GPU/CPU only) according to your machine.
 
@@ -31,6 +31,46 @@ We built our system on top of the [Faster R-CNN](http://arxiv.org/pdf/1506.01497
     cd $ROOT/lib
     make
     ```
+
+
+### Model
+
+Pretrained ImageNet model 
+[npy](https://drive.google.com/open?id=0ByuDEGFYmWsbNVF5eExySUtMZmM), [or this](https://www.dropbox.com/s/po2kzdhdgl4ix55/VGG_imagenet.npy?dl=0)
+
+Faster R-CNN model trained on VOC2007 
+[ckpt](https://drive.google.com/open?id=0ByuDEGFYmWsbZ0EzeUlHcGFIVWM), [npy](https://drive.google.com/file/d/0B2SnTpv8L4iLSmh0czgyMmFIZFE/view?usp=sharing)
+
+Face Detection model
+[ckpt](https://drive.google.com/file/d/0B2SnTpv8L4iLbmNsOXZvcDFFd0U/view?usp=sharing), [npy](https://drive.google.com/file/d/0B2SnTpv8L4iLVzRJQmNFRUpSSEE/view?usp=sharing)
+
+Eye-closure and smile model
+[ckpt](https://drive.google.com/file/d/0B2SnTpv8L4iLZVpFTnA2NDRsQ2M/view?usp=sharing)
+
+*NOTE: You can use `npy` files as initialization, while use `ckpt` files to test and perform certain tasks. `ckpt` files can be transformed into `npy`, please check the code in `$ROOT/lib/networks/newtork.py`*
+
+Facial landmark model of dlib
+[data](https://drive.google.com/file/d/0B2SnTpv8L4iLVXBNNWpRV1A5U28/view?usp=sharing)
+
+
+### Demo
+
+In order to run the automatic enhancement code, you need to:
+
+1) Finish Requires and Installation sections
+
+2) Create a directory named `model` under the repository root, and download Eye-closure and smile model in it.
+
+3) Download facial landmark model and put it under root directory.
+
+Then you can run:
+
+```python
+python tools/enhance.py --model model/VGGnet_fast_rcnn_full_eye_smile_1e-4_iter_70000.ckpt
+```
+
+And you will find the synthesized output under root directory.
+
 
 
 ### Dataset
@@ -94,23 +134,6 @@ FDDB(with eye-closure and smile labels): [[Google Drive]](https://drive.google.c
   5) Don't forget the set training/val/test set in `VOCdevkit2007/VOC2007/ImageSets/Main/`. (We here provide examples for you, you can download along with the annotation files)
 
 
-### Model
-
-Pretrained ImageNet model 
-[npy](https://drive.google.com/open?id=0ByuDEGFYmWsbNVF5eExySUtMZmM), [or this](https://www.dropbox.com/s/po2kzdhdgl4ix55/VGG_imagenet.npy?dl=0)
-
-Faster R-CNN model trained on VOC2007 
-[ckpt](https://drive.google.com/open?id=0ByuDEGFYmWsbZ0EzeUlHcGFIVWM), [npy](https://drive.google.com/file/d/0B2SnTpv8L4iLSmh0czgyMmFIZFE/view?usp=sharing)
-
-Face Detection model
-[ckpt](https://drive.google.com/file/d/0B2SnTpv8L4iLbmNsOXZvcDFFd0U/view?usp=sharing), [npy](https://drive.google.com/file/d/0B2SnTpv8L4iLVzRJQmNFRUpSSEE/view?usp=sharing)
-
-Eye-closure and smile
-[ckpt](https://drive.google.com/file/d/0B2SnTpv8L4iLZVpFTnA2NDRsQ2M/view?usp=sharing)
-
-*NOTE: You can use `npy` files as initialization, while use `ckpt` files to test and perform certain tasks. `ckpt` files can be transformed into `npy`, please check the code in `$ROOT/lib/networks/newtork.py`*
-
-
 ### Training and Testing
 
 1. If you want to train and test the face detector, you can clone the repository from the [TensorFlow version Faster R-CNN](https://github.com/smallcorgi/Faster-RCNN_TF), and modify some funtions in `$ROOT/lib/` to do this.
@@ -134,7 +157,7 @@ python tools/test_yl.py  --model model/VGGnet_fast_rcnn_full_eye_smile_1e-4_iter
 
 1) Face detector
 
-The AP on the WIDER training set is `0.328`. The AP on the whold FDDB dataset is `0.902`.
+The AP on the WIDER training set is `0.328`. The AP on the whole FDDB dataset is `0.902`.
 
 Some examples:
 
@@ -150,9 +173,7 @@ Some examples:
 
 <img src="example/eye_example.png">
 
-### Demo
-
-*After successfully completing basic installation*, you'll be ready to run the demo.
+3) Other results will be updated later...
 
 
 
