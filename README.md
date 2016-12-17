@@ -8,6 +8,7 @@ The system pipeline is as follows:
 
 We built our system on top of the [Faster R-CNN](http://arxiv.org/pdf/1506.01497v3.pdf). Here we used a [TensorFlow implementation](https://github.com/smallcorgi/Faster-RCNN_TF).
 
+**Note: You can see a better formatted report [here](Report.pdf)**
 
 ### Requirements
 
@@ -50,7 +51,7 @@ Eye-closure and smile model
 *NOTE: You can use `npy` files as initialization, while use `ckpt` files to test and perform certain tasks. `ckpt` files can be transformed into `npy`, please check the code in `$ROOT/lib/networks/newtork.py`*
 
 Facial landmark model of dlib
-[data](https://drive.google.com/file/d/0B2SnTpv8L4iLVXBNNWpRV1A5U28/view?usp=sharing)
+[dat](https://drive.google.com/file/d/0B2SnTpv8L4iLVXBNNWpRV1A5U28/view?usp=sharing)
 
 
 ### Demo
