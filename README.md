@@ -113,26 +113,26 @@ FDDB(with eye-closure and smile labels): [[Google Drive]](https://drive.google.c
     $VOCdevkit2007/VOCcode/                   # VOC utility code
     $VOCdevkit2007/VOC2007                    # image sets, annotations, etc.
     # ... and several other directories ...
-    ```
+  ```
 
 4. Create symlinks for the PASCAL VOC dataset
 
   ```Shell
     cd $FRCN_ROOT/data
     ln -s $VOCdevkit VOCdevkit2007
-    ```
+  ```
 
 5. Create a folders for WIDER and FDDB
 
-  1) Move the `images/` folder of WIDER to `VOCdevkit2007/VOC2007/JPEGImages/`, and rename it as `WIDER/`
+  - Move the `images/` folder of WIDER to `VOCdevkit2007/VOC2007/JPEGImages/`, and rename it as `WIDER/`
 
-  2) Move the downloaded annotations of WIDER to `VOCdevkit2007/VOC2007/Annotations` (the folder should be named as `WIDER/`)
+  - Move the downloaded annotations of WIDER to `VOCdevkit2007/VOC2007/Annotations` (the folder should be named as `WIDER/`)
 
-  3) Move the two folders (`2002/` and `2003/`) of FDDB to `VOCdevkit2007/VOC2007/JPEGImages/`
+  - Move the two folders (`2002/` and `2003/`) of FDDB to `VOCdevkit2007/VOC2007/JPEGImages/`
 
-  4) Move the downloaded annotations of FDDB to `VOCdevkit2007/VOC2007/Annotations` (You can't use old annotation and new annotation at the same time)
+  - Move the downloaded annotations of FDDB to `VOCdevkit2007/VOC2007/Annotations` (You can't use old annotation and new annotation at the same time)
  
-  5) Don't forget the set training/val/test set in `VOCdevkit2007/VOC2007/ImageSets/Main/`. (We here provide examples for you, you can download along with the annotation files)
+  - Don't forget the set training/val/test set in `VOCdevkit2007/VOC2007/ImageSets/Main/`. (We here provide examples for you, you can download along with the annotation files)
 
 
 ### Training and Testing
